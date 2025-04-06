@@ -53,7 +53,7 @@ impl eframe::App for Luigi {
                 .max(ui.spacing().interact_size.y);
 
             let available_height = ui.available_height();
-            let mut table = TableBuilder::new(ui)
+            let table = TableBuilder::new(ui)
                 .striped(true)
                 .resizable(true)
                 .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
@@ -62,7 +62,7 @@ impl eframe::App for Luigi {
                 .max_scroll_height(available_height)
                 .sense(egui::Sense::click());
 
-                table
+            table
                 .header(20.0, |mut header| {
                     header.col(|ui| {
                         egui::Sides::new().show(
@@ -83,7 +83,7 @@ impl eframe::App for Luigi {
                         ui.strong("Expanding content");
                     });
                 })
-                .body(|mut body| {
+                .body(|body| {
                     body.rows(text_height, self.num_rows, |mut row| {
                         let row_index = if self.reversed {
                             self.num_rows - 1 - row.index()
@@ -107,7 +107,6 @@ impl eframe::App for Luigi {
                 });
         });
     }
-
 }
 
 impl Luigi {
