@@ -1,22 +1,22 @@
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
-pub struct TemplateApp {
-    label: String,
-
-    #[serde(skip)]
-    value: f32,
+pub struct Luigi {
+    selection: std::collections::HashSet<usize>,
+    reversed: bool,
+    num_rows: usize,
 }
 
-impl Default for TemplateApp {
+impl Default for Luigi {
     fn default() -> Self {
         Self {
-            label: "Sup World!".to_owned(),
-            value: 2.7,
+            selection: std::collections::HashSet::new(),
+            reversed: false,
+            num_rows: 100,
         }
     }
 }
 
-impl TemplateApp {
+impl Luigi {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         if let Some(storage) = cc.storage {
             return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
@@ -26,7 +26,7 @@ impl TemplateApp {
     }
 }
 
-impl eframe::App for TemplateApp {
+impl eframe::App for Luigi {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
     }
@@ -47,35 +47,77 @@ impl eframe::App for TemplateApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             use egui_extras::{Column, TableBuilder};
-            TableBuilder::new(ui)
-                .column(Column::auto().resizable(true))
-                .column(Column::remainder())
+            let text_height = egui::TextStyle::Body
+                .resolve(ui.style())
+                .size
+                .max(ui.spacing().interact_size.y);
+
+            let available_height = ui.available_height();
+            let mut table = TableBuilder::new(ui)
+                .striped(true)
+                .resizable(true)
+                .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
+                .columns(Column::auto(), 3)
+                .min_scrolled_height(0.0)
+                .max_scroll_height(available_height)
+                .sense(egui::Sense::click());
+
+                table
                 .header(20.0, |mut header| {
                     header.col(|ui| {
-                        ui.heading("First column");
+                        egui::Sides::new().show(
+                            ui,
+                            |ui| {
+                                ui.strong("Row");
+                            },
+                            |ui| {
+                                self.reversed ^=
+                                    ui.button(if self.reversed { "⬆" } else { "⬇" }).clicked();
+                            },
+                        );
                     });
                     header.col(|ui| {
-                        ui.heading("Second column");
+                        ui.strong("Clipped text");
+                    });
+                    header.col(|ui| {
+                        ui.strong("Expanding content");
                     });
                 })
                 .body(|mut body| {
-                    body.row(30.0, |mut row| {
+                    body.rows(text_height, self.num_rows, |mut row| {
+                        let row_index = if self.reversed {
+                            self.num_rows - 1 - row.index()
+                        } else {
+                            row.index()
+                        };
+
+                        row.set_selected(self.selection.contains(&row_index));
+
                         row.col(|ui| {
-                            ui.label("Hello");
+                            ui.label(row_index.to_string());
                         });
                         row.col(|ui| {
-                            ui.button("world!");
-                        });
-                    });
-                    body.row(30.0, |mut row| {
-                        row.col(|ui| {
-                            ui.label("Hello");
+                            ui.label(format!("Clipped text {}", row_index));
                         });
                         row.col(|ui| {
-                            ui.button("world!");
+                            ui.add(egui::Separator::default().horizontal());
                         });
+                        self.toggle_row_selection(row_index, &row.response());
                     });
                 });
         });
+    }
+
+}
+
+impl Luigi {
+    fn toggle_row_selection(&mut self, row_index: usize, row_response: &egui::Response) {
+        if row_response.clicked() {
+            if self.selection.contains(&row_index) {
+                self.selection.remove(&row_index);
+            } else {
+                self.selection.insert(row_index);
+            }
+        }
     }
 }

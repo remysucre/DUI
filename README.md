@@ -1,3 +1,3 @@
-# luigi
+# Luigi
 
 GUI for SQLite

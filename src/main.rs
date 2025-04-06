@@ -16,8 +16,8 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
     eframe::run_native(
-        "luigi",
+        "Luigi",
         native_options,
-        Box::new(|cc| Ok(Box::new(luigi::TemplateApp::new(cc)))),
+        Box::new(|cc| Ok(Box::new(luigi::Luigi::new(cc)))),
     )
 }
