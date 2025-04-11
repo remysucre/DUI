@@ -1,9 +1,27 @@
+use std::fmt::Display;
+use rusqlite::{params, Connection, Result, types::Value};
+
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct Luigi {
     selection: std::collections::HashSet<usize>,
     reversed: bool,
-    num_rows: usize,
+    #[serde(skip)] // TODO should we serialize tables?
+    db: Vec<Vec<Value>>,
+}
+
+struct Cell(Value);
+
+impl Display for Cell {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.0 {
+            Value::Integer(i) => write!(f, "{}", i),
+            Value::Text(t) => write!(f, "{}", t),
+            Value::Real(r) => write!(f, "{}", r),
+            Value::Blob(_) => write!(f, "BLOB"),
+            Value::Null => write!(f, "NULL"),
+        }
+    }
 }
 
 impl Default for Luigi {
@@ -11,9 +29,22 @@ impl Default for Luigi {
         Self {
             selection: std::collections::HashSet::new(),
             reversed: false,
-            num_rows: 100,
+            db: dummy_table(),
         }
     }
+}
+
+fn dummy_table() -> Vec<Vec<Value>> {
+    let mut table = vec![];
+    for i in 0..100 {
+        let row = vec![
+            Value::Integer(i as i64),
+            Value::Text(format!("Clipped text {}", i)),
+            Value::Text(format!("Expanding content {}", i)),
+        ];
+        table.push(row);
+    }
+    table
 }
 
 impl Luigi {
@@ -62,6 +93,8 @@ impl eframe::App for Luigi {
                 .max_scroll_height(available_height)
                 .sense(egui::Sense::click());
 
+            let num_rows = self.db.len();
+
             table
                 .header(20.0, |mut header| {
                     header.col(|ui| {
@@ -84,9 +117,9 @@ impl eframe::App for Luigi {
                     });
                 })
                 .body(|body| {
-                    body.rows(text_height, self.num_rows, |mut row| {
+                    body.rows(text_height, num_rows, |mut row| {
                         let row_index = if self.reversed {
-                            self.num_rows - 1 - row.index()
+                            num_rows - 1 - row.index()
                         } else {
                             row.index()
                         };
@@ -94,19 +127,57 @@ impl eframe::App for Luigi {
                         row.set_selected(self.selection.contains(&row_index));
 
                         row.col(|ui| {
-                            ui.label(row_index.to_string());
+                            ui.label(format!("{:?}", self.db[row_index][0]));
                         });
                         row.col(|ui| {
-                            ui.label(format!("Clipped text {}", row_index));
+                            ui.label(format!("{:?}", self.db[row_index][1]));
                         });
                         row.col(|ui| {
-                            ui.add(egui::Separator::default().horizontal());
+                            ui.label(format!("{:?}", self.db[row_index][2]));
                         });
                         self.toggle_row_selection(row_index, &row.response());
                     });
                 });
         });
     }
+}
+
+#[derive(Debug)]
+struct Person {
+    id: rusqlite::types::Value,
+    name: rusqlite::types::Value,
+    data: rusqlite::types::Value,
+}
+
+fn try_rusq() -> Result<()> {
+    let conn = Connection::open_in_memory()?;
+    conn.execute(
+        "CREATE TABLE person (
+            id   INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            data BLOB
+        )",
+        (),
+    )?;
+
+    conn.execute(
+        "INSERT INTO person (name, data) VALUES (?1, ?2)",
+        ("Remy", None::<Vec<u8>>),
+    )?;
+
+    let mut stmt = conn.prepare("SELECT id, name, data FROM person")?;
+    let person_iter = stmt.query_map([], |row| {
+        Ok(Person {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            data: row.get(2)?,
+        })
+    })?;
+
+    for person in person_iter {
+        dbg!(person?);
+    }
+    Ok(())
 }
 
 impl Luigi {
