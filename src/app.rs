@@ -6,6 +6,7 @@ use rusqlite::{params, Connection, Result, types::Value};
 pub struct Luigi {
     selection: std::collections::HashSet<usize>,
     reversed: bool,
+    file: Option<egui::DroppedFile>,
     #[serde(skip)] // TODO should we serialize tables?
     db: Vec<Vec<Value>>,
 }
@@ -29,6 +30,7 @@ impl Default for Luigi {
         Self {
             selection: std::collections::HashSet::new(),
             reversed: false,
+            file: None,
             db: dummy_table(),
         }
     }
@@ -63,13 +65,18 @@ impl eframe::App for Luigi {
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        
+        ctx.input(|i| {
+            if !i.raw.dropped_files.is_empty() {
+                self.file = i.raw.dropped_files.first().cloned();
+            }
+        });
+
+        let filename = self.file.as_ref().map(|f| f.path.as_ref().unwrap().display().to_string());
+
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("Quit").clicked() {
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                    }
-                });
+                ui.label(filename.unwrap_or("No file dropped".to_string()));
                 ui.add_space(16.0);
 
                 egui::widgets::global_theme_preference_buttons(ui);
@@ -174,15 +181,17 @@ fn try_rusq() -> Result<()> {
         })
     })?;
 
-    for person in person_iter {
-        dbg!(person?);
-    }
+    let people: Vec<_> = person_iter.collect();
+
+    dbg!(people);
+
     Ok(())
 }
 
 impl Luigi {
     fn toggle_row_selection(&mut self, row_index: usize, row_response: &egui::Response) {
         if row_response.clicked() {
+            try_rusq().unwrap();
             if self.selection.contains(&row_index) {
                 self.selection.remove(&row_index);
             } else {
