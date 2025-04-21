@@ -1,3 +1,3 @@
-# Luigi
+# DUI
 
-GUI for SQLite
+GUI for DuckDB

@@ -16,8 +16,8 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
     eframe::run_native(
-        "Luigi",
+        "DUI",
         native_options,
-        Box::new(|cc| Ok(Box::new(luigi::Luigi::new(cc)))),
+        Box::new(|cc| Ok(Box::new(dui::DUI::new(cc)))),
     )
 }

@@ -3,7 +3,7 @@ use rusqlite::{params, Connection, Result, types::Value};
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)]
-pub struct Luigi {
+pub struct DUI {
     selection: std::collections::HashSet<usize>,
     reversed: bool,
     file: Option<egui::DroppedFile>,
@@ -25,7 +25,7 @@ impl Display for Cell {
     }
 }
 
-impl Default for Luigi {
+impl Default for DUI {
     fn default() -> Self {
         Self {
             selection: std::collections::HashSet::new(),
@@ -49,7 +49,7 @@ fn dummy_table() -> Vec<Vec<Value>> {
     table
 }
 
-impl Luigi {
+impl DUI {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         if let Some(storage) = cc.storage {
             return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
@@ -59,7 +59,7 @@ impl Luigi {
     }
 }
 
-impl eframe::App for Luigi {
+impl eframe::App for DUI {
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
     }
@@ -188,7 +188,7 @@ fn try_rusq() -> Result<()> {
     Ok(())
 }
 
-impl Luigi {
+impl DUI {
     fn toggle_row_selection(&mut self, row_index: usize, row_response: &egui::Response) {
         if row_response.clicked() {
             try_rusq().unwrap();
