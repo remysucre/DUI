@@ -1,8 +1,6 @@
 #[derive(Default,serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct DUI {
-    reversed: bool,
-    file: Option<egui::DroppedFile>,
     #[serde(skip)] // TODO should we serialize tables?
     db: Vec<Vec<String>>,
 }
@@ -37,18 +35,12 @@ impl eframe::App for DUI {
         
         ctx.input(|i| {
             if !i.raw.dropped_files.is_empty() {
-                dbg!("File dropped");
                 self.load_file(&i.raw.dropped_files[0]);
             }
         });
 
-        let filename = self.file.as_ref().map(|f| f.path.as_ref().unwrap().display().to_string());
-
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                ui.label(filename.unwrap_or("No file dropped".to_string()));
-                ui.add_space(16.0);
-
                 egui::widgets::global_theme_preference_buttons(ui);
             });
         });
@@ -75,16 +67,7 @@ impl eframe::App for DUI {
             table
                 .header(20.0, |mut header| {
                     header.col(|ui| {
-                        egui::Sides::new().show(
-                            ui,
-                            |ui| {
-                                ui.strong("Row");
-                            },
-                            |ui| {
-                                self.reversed ^=
-                                    ui.button(if self.reversed { "⬆" } else { "⬇" }).clicked();
-                            },
-                        );
+                        ui.strong("Row");
                     });
                     header.col(|ui| {
                         ui.strong("Clipped text");
@@ -95,11 +78,7 @@ impl eframe::App for DUI {
                 })
                 .body(|body| {
                     body.rows(text_height, num_rows, |mut row| {
-                        let row_index = if self.reversed {
-                            num_rows - 1 - row.index()
-                        } else {
-                            row.index()
-                        };
+                        let row_index = row.index();
 
                         row.col(|ui| {
                             ui.label(format!("{:?}", self.db[row_index][0]));
