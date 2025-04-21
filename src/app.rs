@@ -1,52 +1,10 @@
-use std::fmt::Display;
-use rusqlite::{params, Connection, Result, types::Value};
-
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(Default,serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct DUI {
-    selection: std::collections::HashSet<usize>,
     reversed: bool,
     file: Option<egui::DroppedFile>,
     #[serde(skip)] // TODO should we serialize tables?
-    db: Vec<Vec<Value>>,
-}
-
-struct Cell(Value);
-
-impl Display for Cell {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.0 {
-            Value::Integer(i) => write!(f, "{}", i),
-            Value::Text(t) => write!(f, "{}", t),
-            Value::Real(r) => write!(f, "{}", r),
-            Value::Blob(_) => write!(f, "BLOB"),
-            Value::Null => write!(f, "NULL"),
-        }
-    }
-}
-
-impl Default for DUI {
-    fn default() -> Self {
-        Self {
-            selection: std::collections::HashSet::new(),
-            reversed: false,
-            file: None,
-            db: dummy_table(),
-        }
-    }
-}
-
-fn dummy_table() -> Vec<Vec<Value>> {
-    let mut table = vec![];
-    for i in 0..100 {
-        let row = vec![
-            Value::Integer(i as i64),
-            Value::Text(format!("Clipped text {}", i)),
-            Value::Text(format!("Expanding content {}", i)),
-        ];
-        table.push(row);
-    }
-    table
+    db: Vec<Vec<String>>,
 }
 
 impl DUI {
@@ -56,6 +14,17 @@ impl DUI {
         }
 
         Default::default()
+    }
+
+    fn load_file(&mut self, file: &egui::DroppedFile) {
+        if let Some(path) = &file.path {
+            if let Ok(file) = std::fs::read_to_string(path) {
+                self.db = file
+                    .lines()
+                    .map(|line| line.split('\t').map(|s| s.to_string()).collect())
+                    .collect();
+            }
+        }
     }
 }
 
@@ -68,7 +37,8 @@ impl eframe::App for DUI {
         
         ctx.input(|i| {
             if !i.raw.dropped_files.is_empty() {
-                self.file = i.raw.dropped_files.first().cloned();
+                dbg!("File dropped");
+                self.load_file(&i.raw.dropped_files[0]);
             }
         });
 
@@ -131,8 +101,6 @@ impl eframe::App for DUI {
                             row.index()
                         };
 
-                        row.set_selected(self.selection.contains(&row_index));
-
                         row.col(|ui| {
                             ui.label(format!("{:?}", self.db[row_index][0]));
                         });
@@ -142,61 +110,8 @@ impl eframe::App for DUI {
                         row.col(|ui| {
                             ui.label(format!("{:?}", self.db[row_index][2]));
                         });
-                        self.toggle_row_selection(row_index, &row.response());
                     });
                 });
         });
-    }
-}
-
-#[derive(Debug)]
-struct Person {
-    id: rusqlite::types::Value,
-    name: rusqlite::types::Value,
-    data: rusqlite::types::Value,
-}
-
-fn try_rusq() -> Result<()> {
-    let conn = Connection::open_in_memory()?;
-    conn.execute(
-        "CREATE TABLE person (
-            id   INTEGER PRIMARY KEY,
-            name TEXT NOT NULL,
-            data BLOB
-        )",
-        (),
-    )?;
-
-    conn.execute(
-        "INSERT INTO person (name, data) VALUES (?1, ?2)",
-        ("Remy", None::<Vec<u8>>),
-    )?;
-
-    let mut stmt = conn.prepare("SELECT id, name, data FROM person")?;
-    let person_iter = stmt.query_map([], |row| {
-        Ok(Person {
-            id: row.get(0)?,
-            name: row.get(1)?,
-            data: row.get(2)?,
-        })
-    })?;
-
-    let people: Vec<_> = person_iter.collect();
-
-    dbg!(people);
-
-    Ok(())
-}
-
-impl DUI {
-    fn toggle_row_selection(&mut self, row_index: usize, row_response: &egui::Response) {
-        if row_response.clicked() {
-            try_rusq().unwrap();
-            if self.selection.contains(&row_index) {
-                self.selection.remove(&row_index);
-            } else {
-                self.selection.insert(row_index);
-            }
-        }
     }
 }
