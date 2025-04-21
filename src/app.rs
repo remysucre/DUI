@@ -1,8 +1,12 @@
+use duckdb::{Connection, params,types::Value};
+
 #[derive(Default,serde::Deserialize, serde::Serialize)]
 #[serde(default)]
 pub struct DUI {
     #[serde(skip)] // TODO should we serialize tables?
     db: Vec<Vec<String>>,
+    #[serde(skip)]
+    conn: Option<Connection>,
 }
 
 impl DUI {
@@ -16,11 +20,29 @@ impl DUI {
 
     fn load_file(&mut self, file: &egui::DroppedFile) {
         if let Some(path) = &file.path {
-            if let Ok(file) = std::fs::read_to_string(path) {
-                self.db = file
-                    .lines()
-                    .map(|line| line.split('\t').map(|s| s.to_string()).collect())
-                    .collect();
+            // open a duckdb connection and load the csv file as a table
+            let conn = Connection::open_in_memory().unwrap();
+            conn.execute("CREATE TABLE temp AS SELECT * FROM read_csv(?)", params![path.to_str().unwrap()]).unwrap();
+
+            let mut stmt = conn.prepare("SELECT * FROM temp").unwrap();
+
+            let row_iter = stmt.query_map([], |row| {
+                let mut row_data = Vec::new();
+                for i in 0..3 {
+                    row_data.push(row.get::<_, Value>(i).unwrap());
+                }
+                Ok(row_data)
+            }).unwrap();
+
+            for row in row_iter {
+                match row {
+                    Ok(row_data) => {
+                        dbg!(row_data);
+                    }
+                    Err(e) => {
+                        eprintln!("Error reading row: {}", e);
+                    }
+                }
             }
         }
     }
